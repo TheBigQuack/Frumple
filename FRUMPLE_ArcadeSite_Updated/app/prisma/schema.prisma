@@ -1,0 +1,328 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/FRUMPLE/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  customer
+  admin
+  investor
+  creator
+  esports
+  business
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?
+  firstName     String?
+  lastName      String?
+  phone         String?
+  role          UserRole  @default(customer)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  bookings      Booking[]
+  orders        Order[]
+  reviews       Review[]
+  tournaments   TournamentParticipant[]
+  serverSubscriptions ServerSubscription[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Gaming Stations
+model GamingStation {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   // standard, premium, vip
+  status       String   @default("available") // available, occupied, maintenance
+  hourlyRate   Int
+  specifications Json   // CPU, GPU, RAM, etc.
+  features     String[]
+  location     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// VR Experiences
+model VRExperience {
+  id            String   @id @default(cuid())
+  title         String
+  category      String   // action, adventure, simulation, horror, education, multiplayer
+  duration      Int      // in minutes
+  maxPlayers    Int
+  difficulty    String   // easy, medium, hard, extreme
+  price         Int      // in cents
+  rating        Float?
+  description   String
+  features      String[]
+  requirements  String[]
+  isPopular     Boolean  @default(false)
+  isNew         Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Streaming Studios
+model StreamingStudio {
+  id            String   @id @default(cuid())
+  name          String
+  type          String   // basic, professional, premium, enterprise
+  status        String   @default("available") // available, occupied, maintenance
+  hourlyRate    Int
+  capacity      Int
+  equipment     Json     // cameras, microphones, lighting, etc.
+  features      String[]
+  specifications Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Server Hosting Packages
+model ServerPackage {
+  id            String   @id @default(cuid())
+  name          String
+  tier          String   // starter, professional, enterprise, dedicated
+  monthlyPrice  Int
+  setupFee      Int
+  specifications Json
+  features      String[]
+  gameSupport   String[]
+  uptime        String
+  support       String
+  maxPlayers    Int
+  isPopular     Boolean  @default(false)
+  isRecommended Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions ServerSubscription[]
+}
+
+model ServerSubscription {
+  id              String        @id @default(cuid())
+  userId          String
+  packageId       String
+  status          String        @default("active") // active, suspended, cancelled
+  startDate       DateTime      @default(now())
+  endDate         DateTime?
+  nextBillingDate DateTime
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id])
+  package         ServerPackage @relation(fields: [packageId], references: [id])
+}
+
+// Food & Beverages
+model MenuItem {
+  id               String   @id @default(cuid())
+  name             String
+  category         String   // energy-drinks, snacks, meals, desserts, combos
+  price            Int      // in cents
+  description      String
+  ingredients      String[]
+  nutritionalInfo  Json?
+  tags             String[]
+  isPopular        Boolean  @default(false)
+  isNew            Boolean  @default(false)
+  isVegan          Boolean  @default(false)
+  isSpicy          Boolean  @default(false)
+  available        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  orderItems       OrderItem[]
+}
+
+// Bookings System
+model Booking {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String   // gaming-station, vr-experience, streaming-studio
+  resourceId        String   // ID of the booked resource
+  startTime         DateTime
+  endTime           DateTime
+  duration          Int      // in minutes
+  players           Int      @default(1)
+  totalPrice        Int      // in cents
+  status            String   @default("confirmed") // confirmed, cancelled, completed
+  specialRequests   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id])
+}
+
+// Orders for F&B
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  status      String      @default("pending") // pending, preparing, ready, completed, cancelled
+  totalPrice  Int         // in cents
+  orderType   String      @default("pickup") // pickup, delivery
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id])
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  price      Int      // price at time of order
+  createdAt  DateTime @default(now())
+
+  order      Order    @relation(fields: [orderId], references: [id])
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+// Reviews and Ratings
+model Review {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String   // station, vr-experience, studio, menu-item
+  resourceId String
+  rating     Int      // 1-5 stars
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+// Tournaments
+model Tournament {
+  id              String   @id @default(cuid())
+  name            String
+  game            String
+  description     String
+  startDate       DateTime
+  endDate         DateTime
+  maxParticipants Int
+  entryFee        Int      // in cents
+  prizePool       Int      // in cents
+  status          String   @default("upcoming") // upcoming, active, completed, cancelled
+  rules           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  participants    TournamentParticipant[]
+}
+
+model TournamentParticipant {
+  id           String   @id @default(cuid())
+  tournamentId String
+  userId       String
+  teamName     String?
+  placement    Int?
+  prizeWon     Int?     // in cents
+  joinedAt     DateTime @default(now())
+
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@unique([tournamentId, userId])
+}
+
+// Business Analytics
+model BusinessMetrics {
+  id                String   @id @default(cuid())
+  date              DateTime @default(now())
+  totalRevenue      Int      // in cents
+  gamingStationRev  Int
+  vrExperienceRev   Int
+  streamingStudioRev Int
+  serverHostingRev  Int
+  foodBeverageRev   Int
+  totalBookings     Int
+  activeUsers       Int
+  newSignups        Int
+  createdAt         DateTime @default(now())
+
+  @@unique([date])
+}
+
+// Financial Projections for Investors
+model FinancialProjection {
+  id              String   @id @default(cuid())
+  year            Int
+  month           Int
+  projectedRevenue Int     // in cents
+  projectedExpenses Int    // in cents
+  projectedProfit Int      // in cents
+  actualRevenue   Int?     // in cents
+  actualExpenses  Int?     // in cents
+  actualProfit    Int?     // in cents
+  category        String   // monthly, quarterly, yearly
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([year, month, category])
+}
+
+// Contact Form Submissions
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  formType  String   @default("general") // general, enterprise, investment
+  status    String   @default("new") // new, in-progress, resolved
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
