@@ -1,0 +1,11 @@
+GAMEHUB ELITE - FINANCIAL SUMMARY
+==================================================
+
+Total 5-Year Revenue: $14,870,839
+Total 5-Year Expenses: $4,542,497
+Total 5-Year Net Income: $10,328,343
+Break-Even Month: 4
+Peak Monthly Revenue: $479,185
+Average Monthly Growth Rate: 2.37%
+Final ROI: 1180.4%
+NPV (10% discount): $3,605,890

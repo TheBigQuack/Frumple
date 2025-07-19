@@ -1,0 +1,377 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/hybrid_gaming_business/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// NextAuth required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  phone         String?
+  role          UserRole  @default(CUSTOMER)
+  membershipId  String?   @map("membership_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  accounts           Account[]
+  sessions           Session[]
+  gamingBookings     GamingBooking[]
+  vrBookings         VrBooking[]
+  streamingBookings  StreamingBooking[]
+  serverSubscriptions ServerSubscription[]
+  orders             Order[]
+  membership         Membership? @relation(fields: [membershipId], references: [id])
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Enums
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  INVESTOR
+  STAFF
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum StationType {
+  STANDARD
+  PREMIUM
+  ELITE
+  CONSOLE
+}
+
+enum VrExperienceType {
+  SOLO_30MIN
+  SOLO_60MIN
+  GROUP
+  PREMIUM
+}
+
+enum StreamingStudioType {
+  BASIC
+  PROFESSIONAL
+  PREMIUM
+}
+
+enum MembershipTier {
+  BASIC
+  PREMIUM
+  ELITE
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+// Gaming Stations
+model GamingStation {
+  id          String      @id @default(cuid())
+  name        String
+  type        StationType
+  description String?
+  hourlyRate  Float
+  isActive    Boolean     @default(true)
+  specs       Json?       // Hardware specifications
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  bookings    GamingBooking[]
+
+  @@map("gaming_stations")
+}
+
+model GamingBooking {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  stationId       String        @map("station_id")
+  startTime       DateTime      @map("start_time")
+  endTime         DateTime      @map("end_time")
+  status          BookingStatus @default(PENDING)
+  totalAmount     Float         @map("total_amount")
+  paymentStatus   PaymentStatus @default(PENDING)
+  specialRequests String?       @map("special_requests")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  
+  user    User          @relation(fields: [userId], references: [id])
+  station GamingStation @relation(fields: [stationId], references: [id])
+
+  @@map("gaming_bookings")
+}
+
+// VR Experiences
+model VrStation {
+  id          String            @id @default(cuid())
+  name        String
+  type        VrExperienceType
+  description String?
+  price       Float
+  duration    Int               // Duration in minutes
+  maxPlayers  Int               @default(1) @map("max_players")
+  isActive    Boolean           @default(true)
+  equipment   Json?             // VR equipment details
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  
+  bookings    VrBooking[]
+
+  @@map("vr_stations")
+}
+
+model VrBooking {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  stationId       String        @map("station_id")
+  startTime       DateTime      @map("start_time")
+  endTime         DateTime      @map("end_time")
+  playerCount     Int           @default(1) @map("player_count")
+  status          BookingStatus @default(PENDING)
+  totalAmount     Float         @map("total_amount")
+  paymentStatus   PaymentStatus @default(PENDING)
+  specialRequests String?       @map("special_requests")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  
+  user    User      @relation(fields: [userId], references: [id])
+  station VrStation @relation(fields: [stationId], references: [id])
+
+  @@map("vr_bookings")
+}
+
+// Streaming Studios
+model StreamingStudio {
+  id          String              @id @default(cuid())
+  name        String
+  type        StreamingStudioType
+  description String?
+  hourlyRate  Float               @map("hourly_rate")
+  equipment   Json?               // Studio equipment details
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  
+  bookings    StreamingBooking[]
+
+  @@map("streaming_studios")
+}
+
+model StreamingBooking {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  studioId        String        @map("studio_id")
+  startTime       DateTime      @map("start_time")
+  endTime         DateTime      @map("end_time")
+  status          BookingStatus @default(PENDING)
+  totalAmount     Float         @map("total_amount")
+  paymentStatus   PaymentStatus @default(PENDING)
+  techSupport     Boolean       @default(false) @map("tech_support")
+  specialRequests String?       @map("special_requests")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  
+  user   User            @relation(fields: [userId], references: [id])
+  studio StreamingStudio @relation(fields: [studioId], references: [id])
+
+  @@map("streaming_bookings")
+}
+
+// Server Hosting
+model ServerSubscription {
+  id             String        @id @default(cuid())
+  userId         String        @map("user_id")
+  serverName     String        @map("server_name")
+  gameType       String        @map("game_type")
+  plan           String        // Basic, Premium, Enterprise
+  monthlyPrice   Float         @map("monthly_price")
+  status         String        @default("active")
+  specifications Json?         // Server specs
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("server_subscriptions")
+}
+
+// Membership Plans
+model Membership {
+  id          String         @id @default(cuid())
+  name        String
+  tier        MembershipTier
+  monthlyFee  Float          @map("monthly_fee")
+  benefits    Json           // List of benefits
+  discount    Float          @default(0) // Discount percentage
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  
+  users       User[]
+
+  @@map("memberships")
+}
+
+// Food & Beverage
+model MenuItem {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  category    String      // Beverages, Food, Snacks
+  isAvailable Boolean     @default(true)
+  imageUrl    String?     @map("image_url")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  orderItems  OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  userId        String      @map("user_id")
+  status        OrderStatus @default(PENDING)
+  totalAmount   Float       @map("total_amount")
+  paymentStatus PaymentStatus @default(PENDING)
+  deliveryNotes String?     @map("delivery_notes")
+  location      String?     // Gaming station or delivery location
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String   @map("order_id")
+  menuItemId String   @map("menu_item_id")
+  quantity   Int
+  price      Float    // Price at time of order
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  order    Order    @relation(fields: [orderId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+// Events and Tournaments
+model Event {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  eventType     String   // Tournament, Social, Workshop
+  startTime     DateTime @map("start_time")
+  endTime       DateTime @map("end_time")
+  maxPlayers    Int?     @map("max_players")
+  entryFee      Float?   @map("entry_fee")
+  prizePool     Float?   @map("prize_pool")
+  isActive      Boolean  @default(true)
+  imageUrl      String?  @map("image_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("events")
+}
+
+// Business Analytics
+model BusinessMetrics {
+  id               String   @id @default(cuid())
+  date             DateTime @unique
+  dailyRevenue     Float    @map("daily_revenue")
+  gamingRevenue    Float    @map("gaming_revenue")
+  vrRevenue        Float    @map("vr_revenue")
+  streamingRevenue Float    @map("streaming_revenue")
+  serverRevenue    Float    @map("server_revenue")
+  foodRevenue      Float    @map("food_revenue")
+  customerCount    Int      @map("customer_count")
+  utilizationRate  Float    @map("utilization_rate")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("business_metrics")
+}
+
+// Contact Forms
+model ContactForm {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  subject     String
+  message     String
+  formType    String   @default("general") @map("form_type") // general, investor, partnership
+  status      String   @default("new")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("contact_forms")
+}

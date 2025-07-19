@@ -1,0 +1,22 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/arcade_investor_site/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model InvestorInquiry {
+    id        String   @id @default(cuid())
+    name      String
+    email     String
+    message   String?
+    status    String   @default("new")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("investor_inquiries")
+}
